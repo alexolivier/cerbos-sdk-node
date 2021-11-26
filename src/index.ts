@@ -121,6 +121,45 @@ interface CerbosOptions {
   playgroundInstance?: string;
 }
 
+export interface IResourcesQueryPlanResponseConditionOperand {
+  condition?: IResourcesQueryPlanResponseCondition;
+  expression?: IResourcesQueryPlanResponseExpression;
+}
+
+export interface IResourcesQueryPlanResponseExpression {
+  operator?: string;
+  operands?: IResourcesQueryPlanResponseExpressionOperand[];
+}
+
+export interface IResourcesQueryPlanResponseExpressionOperand {
+  value?: object;
+  expression?: IResourcesQueryPlanResponseExpression;
+  variable?: string;
+}
+
+export interface IResourcesQueryPlanRequest {
+  requestId?: string;
+  action: string;
+  principal?: IPrincipal;
+  resourceKind: string;
+  policyVersion?: string;
+  auxData?: IAuxData;
+}
+
+export interface IResourcesQueryPlanResponse {
+  requestId?: string;
+  action: string;
+  resourceKind: string;
+  policyVersion?: string;
+  filter: IResourcesQueryPlanResponseConditionOperand;
+  filterDebug?: string;
+}
+
+export interface IResourcesQueryPlanResponseCondition {
+  operator?: string;
+  nodes?: IResourcesQueryPlanResponseConditionOperand[];
+}
+
 export class Cerbos {
   private host: string;
   private log: winston.Logger;
@@ -145,6 +184,29 @@ export class Cerbos {
         }),
       ],
     });
+  }
+
+  async resourcesQueryPlan(payload: IResourcesQueryPlanRequest): Promise<IResourcesQueryPlanResponse> {
+    const url = `${this.host}/api/resources_query_plan`;
+    if (!payload.requestId) {
+      payload.requestId = uuidv4();
+    }
+    // eslint-disable-next-line prefer-const
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let headers: any = {
+      "Content-Type": "application/json",
+    };
+    const response = await fetch(url, {
+      method: "post",
+      body: JSON.stringify(payload),
+      headers,
+      timeout: this.timeout,
+    });
+
+    const data = await response.json();
+    this.log.info("Cerbos.resourcesQueryPlan: Response", data);
+
+    return data;
   }
 
   async check(data: IAuthorize): Promise<ICerbosResponse> {
