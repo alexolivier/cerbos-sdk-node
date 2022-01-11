@@ -278,7 +278,7 @@ export class Cerbos {
 
     // Fetch Data
     try {
-      const response = await fetch(`${this.host}/api/check`, {
+      const response = await fetch(`${this.host}/api/x/plan/resources`, {
         method: "post",
         body: JSON.stringify(payload),
         headers,
