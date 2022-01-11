@@ -60,6 +60,19 @@ interface IAuthorizeResponse {
   };
 }
 
+interface IQueryPlan {
+  action: string;
+  principal: IPrincipal;
+  resource: {
+    policyVersion?: unknown;
+    kind: string;
+    attr?: {
+      [key: string]: unknown;
+    };
+  };
+  auxData?: IAuxData;
+}
+
 interface IQueryPlanResponse {
   requestID: string;
   action: string;
@@ -234,7 +247,7 @@ export class Cerbos {
     return new CerbosResponseWrapper(resp);
   }
 
-  async getQueryPlan(data: IAuthorize): Promise<IQueryPlanResponse> {
+  async getQueryPlan(data: IQueryPlan): Promise<IQueryPlanResponse> {
     this.log.info("Cerbos.getQueryPlan", data);
     const payload = {
       requestId: uuidv4(),
