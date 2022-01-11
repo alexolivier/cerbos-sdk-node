@@ -72,20 +72,34 @@ interface IQueryPlan {
   };
   auxData?: IAuxData;
 }
-
-interface IQueryPlanResponse {
-  requestID: string;
+export interface IQueryPlanResponse {
+  requestId: string;
   action: string;
   resourceKind: string;
   policyVersion: string;
   filter: ExpressionOperand;
 }
 
-interface ExpressionOperand {
-  operator: string;
-  variable: string;
-  operands: ExpressionOperand[];
+export interface IQueryPlanExpression {
+  expression: {
+    operator: string;
+    operands: ExpressionOperand[];
+  };
 }
+
+export interface IQueryPlanVariable {
+  variable: string;
+}
+
+export interface IQueryPlanValue {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  value: any;
+}
+
+export type ExpressionOperand =
+  | IQueryPlanExpression
+  | IQueryPlanVariable
+  | IQueryPlanValue;
 
 // export interface ICerbosBatchAuthorizeResource {
 //   actions: string[];
