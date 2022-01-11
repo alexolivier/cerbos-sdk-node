@@ -60,6 +60,20 @@ interface IAuthorizeResponse {
   };
 }
 
+interface IQueryPlanResponse {
+  requestID: string;
+  action: string;
+  resourceKind: string;
+  policyVersion: string;
+  filter: ExpressionOperand;
+}
+
+interface ExpressionOperand {
+  operator: string;
+  variable: string;
+  operands: ExpressionOperand[];
+}
+
 // export interface ICerbosBatchAuthorizeResource {
 //   actions: string[];
 //   resource: {
@@ -218,6 +232,53 @@ export class Cerbos {
     }
 
     return new CerbosResponseWrapper(resp);
+  }
+
+  async getQueryPlan(data: IAuthorize): Promise<IQueryPlanResponse> {
+    this.log.info("Cerbos.getQueryPlan", data);
+    const payload = {
+      requestId: uuidv4(),
+      ...data,
+      resource: {
+        policyVersion: data.resource.policyVersion || "default",
+        ...data.resource,
+      },
+      principal: {
+        policyVersion: data.principal.policyVersion || "default",
+        ...data.principal,
+      },
+    };
+    this.log.debug("Cerbos.getQueryPlan Payload", payload);
+
+    let headers: HeadersInit = {
+      "Content-Type": "application/json",
+    };
+
+    if (this.playgroundInstance) {
+      headers = {
+        ...headers,
+        "Playground-Instance": this.playgroundInstance,
+      };
+    }
+
+    let resp: IQueryPlanResponse;
+
+    // Fetch Data
+    try {
+      const response = await fetch(`${this.host}/api/check`, {
+        method: "post",
+        body: JSON.stringify(payload),
+        headers,
+      });
+      resp = await response.json();
+      this.log.info("Cerbos.getQueryPlan: Response", resp);
+      return resp;
+    } catch (e) {
+      this.log.error("Cerbos.getQueryPlan Error", e);
+      throw new AuthorizationError(
+        `Could not connect to Cerbos PDP at ${this.host}`
+      );
+    }
   }
 
   // async authorizeBatch(data: IBatchAuthorize): Promise<ICerbosBatchResponse[]> {
