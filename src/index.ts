@@ -72,12 +72,22 @@ interface IQueryPlan {
   };
   auxData?: IAuxData;
 }
+
+export enum QueryPlanKind {
+  KIND_ALWAYS_ALLOWED = "KIND_ALWAYS_ALLOWED",
+  KIND_ALWAYS_DENIED = "KIND_ALWAYS_DENIED",
+  KIND_CONDITIONAL = "KIND_CONDITIONAL",
+}
+
 export interface IQueryPlanResponse {
   requestId: string;
   action: string;
   resourceKind: string;
   policyVersion: string;
-  filter: ExpressionOperand;
+  filter: {
+    kind: QueryPlanKind;
+    condition: ExpressionOperand;
+  };
 }
 
 export interface IQueryPlanExpression {
