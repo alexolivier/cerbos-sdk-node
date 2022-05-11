@@ -1,34 +1,36 @@
-import fetch from "node-fetch";
+import fetch from "isomorphic-unfetch";
 import { v4 as uuidv4 } from "uuid";
-import * as winston from "winston";
+import log from "loglevel";
 
-interface IPrincipal {
+export interface IPrincipal {
   id: string;
-  policyVersion?: any;
+  policyVersion?: unknown;
+  scope?: string;
   roles: string[];
   attr?: {
-    [key: string]: any;
+    [key: string]: unknown;
   };
 }
 
-interface IAuxData {
+export interface IAuxData {
   jwt?: IJwt;
 }
 
-interface IJwt {
+export interface IJwt {
   token: string;
   keySetId?: string;
 }
 
-interface IAuthorize {
+export interface IAuthorize {
   actions: string[];
   resource: {
-    policyVersion?: any;
+    policyVersion?: unknown;
     kind: string;
+    scope?: string;
     instances: {
       [resourceKey: string]: {
         attr?: {
-          [key: string]: any;
+          [key: string]: unknown;
         };
       };
     };
@@ -37,44 +39,27 @@ interface IAuthorize {
   auxData?: IAuxData;
 }
 
-interface IAuthorizeResponse {
+export enum ValidationErrorSource {
+  SOURCE_RESOURCE = "SOURCE_RESOURCE",
+  SOURCE_PRINCIPAL = "SOURCE_PRINCIPAL",
+}
+
+export interface ValidationError {
+  path: string;
+  message: string;
+  source: ValidationErrorSource;
+}
+
+export interface IAuthorizeResponse {
   requestID: string;
   resourceInstances: {
     [resourceKey: string]: {
       actions: {
         [key: string]: AuthorizeEffect;
       };
+      validationErrors?: ValidationError[];
     };
   };
-}
-
-export interface ICerbosBatchAuthorizeResource {
-  actions: string[];
-  resource: {
-    policyVersion?: any;
-    kind: string;
-    id: string;
-    attr: {
-      [key: string]: any;
-    };
-  };
-}
-
-export interface ICerbosBatchAuthorizeResult {
-  [key: string]: AuthorizeEffect;
-}
-
-interface IBatchAuthorize {
-  principal: IPrincipal;
-  resources: ICerbosBatchAuthorizeResource[];
-}
-
-interface IAuthorizeBatchResponse {
-  requestID: string;
-  results: {
-    resourceId: string;
-    actions: ICerbosBatchAuthorizeResult;
-  }[];
 }
 
 export enum AuthorizeEffect {
@@ -82,20 +67,13 @@ export enum AuthorizeEffect {
   DENY = "EFFECT_DENY",
 }
 
-interface ICerbosBatchResponse {
-  resourceId: string;
-  actions: {
-    [action: string]: AuthorizeEffect;
-  };
-}
-
-export class AuthorizationError extends Error {}
+export class AuthorizationError extends Error { }
 
 export interface ICerbosResponse {
   isAuthorized: (resourceKey: string, action: string) => boolean;
 }
 
-class CerbosResponseWrapper implements ICerbosResponse {
+export class CerbosResponseWrapper implements ICerbosResponse {
   readonly resp: IAuthorizeResponse;
 
   constructor(resp: IAuthorizeResponse) {
@@ -114,10 +92,10 @@ class CerbosResponseWrapper implements ICerbosResponse {
   }
 }
 
-interface CerbosOptions {
+export interface CerbosOptions {
   hostname: string;
-  logLevel?: "fatal" | "error" | "warn" | "info" | "debug";
-  timeout?: number;
+  logLevel?: log.LogLevelDesc;
+  handleValidationErrors?: "error" | "log" | false;
   playgroundInstance?: string;
 }
 
@@ -162,28 +140,21 @@ export interface IResourcesQueryPlanResponseCondition {
 
 export class Cerbos {
   private host: string;
-  private log: winston.Logger;
-  private timeout: number;
+  private log: log.Logger;
   private playgroundInstance?: string;
+  private handleValidationErrors?: "error" | "log" | false;
 
   constructor({
     hostname,
     logLevel,
-    timeout = 0,
     playgroundInstance,
+    handleValidationErrors,
   }: CerbosOptions) {
     this.host = hostname;
-    this.timeout = timeout;
     this.playgroundInstance = playgroundInstance;
-    this.log = winston.createLogger({
-      level: logLevel,
-      silent: !logLevel,
-      transports: [
-        new winston.transports.Console({
-          format: winston.format.simple(),
-        }),
-      ],
-    });
+    this.handleValidationErrors = handleValidationErrors;
+    this.log = log.noConflict();
+    this.log.setLevel(logLevel ?? "silent");
   }
 
   async resourcesQueryPlan(payload: IResourcesQueryPlanRequest): Promise<IResourcesQueryPlanResponse> {
@@ -193,14 +164,13 @@ export class Cerbos {
     }
     // eslint-disable-next-line prefer-const
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let headers: any = {
+    const headers: any = {
       "Content-Type": "application/json",
     };
     const response = await fetch(url, {
       method: "post",
       body: JSON.stringify(payload),
-      headers,
-      timeout: this.timeout,
+      headers
     });
 
     const data = await response.json();
@@ -225,9 +195,7 @@ export class Cerbos {
     };
     this.log.debug("Cerbos.check Payload", payload);
 
-    // eslint-disable-next-line prefer-const
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let headers: any = {
+    let headers: HeadersInit = {
       "Content-Type": "application/json",
     };
 
@@ -238,51 +206,44 @@ export class Cerbos {
       };
     }
 
+    let resp: IAuthorizeResponse;
+
+    // Fetch Data
     try {
       const response = await fetch(`${this.host}/api/check`, {
         method: "post",
         body: JSON.stringify(payload),
         headers,
-        timeout: this.timeout,
       });
-      const data = await response.json();
-      this.log.info("Cerbos.check: Response", data);
-      return new CerbosResponseWrapper(data);
+      resp = await response.json();
+      this.log.info("Cerbos.check: Response", resp);
     } catch (e) {
       this.log.error("Cerbos.check Error", e);
       throw new AuthorizationError(
         `Could not connect to Cerbos PDP at ${this.host}`
       );
     }
+
+    // Handle Validation Errors
+
+    if (this.handleValidationErrors) {
+      const validationErrors = resp.resourceInstances
+        ? Object.values(resp.resourceInstances)
+          .map((resource) => resource.validationErrors)
+          .flat()
+        : [];
+
+      if (validationErrors.length > 0) {
+        if (this.handleValidationErrors === "error") {
+          throw new AuthorizationError(
+            `Validation Error: ${JSON.stringify(validationErrors)}`
+          );
+        } else {
+          this.log.error("Cerbos.check: Validation Errors", validationErrors);
+        }
+      }
+    }
+
+    return new CerbosResponseWrapper(resp);
   }
-
-  // async authorizeBatch(data: IBatchAuthorize): Promise<ICerbosBatchResponse[]> {
-  //   const payload = {
-  //     requestId: uuidv4(),
-  //     principal: {
-  //       policyVersion: data.principal.policyVersion || "default",
-  //       ...data.principal,
-  //     },
-  //     resources: data.resources.map((r) => {
-  //       return {
-  //         actions: r.actions,
-  //         resource: {
-  //           policyVersion: r.resource.policyVersion || "default",
-  //           ...r.resource,
-  //         },
-  //       };
-  //     }),
-  //   };
-
-  //   try {
-  //     const response = await axios.post<IAuthorizeBatchResponse>(
-  //       `${this.host}/api/x/check_resource_batch`,
-  //       payload
-  //     );
-
-  //     return response.data.results;
-  //   } catch (e) {
-  //     throw new AuthorizationError("Error authorizing");
-  //   }
-  // }
 }

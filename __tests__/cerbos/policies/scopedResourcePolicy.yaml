@@ -3,6 +3,7 @@ apiVersion: api.cerbos.dev/v1
 resourcePolicy:
   version: "default"
   resource: "blogPost"
+  scope: "testScope"
   schemas:
     principalSchema:
       ref: cerbos:///principal.json

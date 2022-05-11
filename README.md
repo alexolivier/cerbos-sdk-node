@@ -6,11 +6,17 @@ The Cerbos JavaScript client library - sometimes known as an SDK - makes it easy
 
 ## Contents
 
-- [Requirements](#requirements)
-- [Installation](#installation)
-- [Usage](#usage)
-- [Configuration](#configuration)
-- [Documentation](#documentation)
+- [Cerbos Node SDK](#cerbos-node-sdk)
+  - [Contents](#contents)
+  - [Requirements](#requirements)
+  - [Installation](#installation)
+  - [Usage](#usage)
+    - [TypeScript](#typescript)
+  - [Configuration](#configuration)
+    - [Hostname (required)](#hostname-required)
+    - [Validation Errors](#validation-errors)
+    - [Logging](#logging)
+  - [Documentation](#documentation)
 
 ## Requirements
 
@@ -24,19 +30,19 @@ To use the Cerbos JavaScript client library, you'll need:
 ## Installation
 
 ```sh
-$ npm i cerbos
+$ npm i @cerbos/sdk
 ```
 
 or
 
 ```
-$ yarn add cerbos
+$ yarn add @cerbos/sdk
 ```
 
 ## Usage
 
 ```js
-import { Cerbos } from "cerbos";
+import { Cerbos } from "@cerbos/sdk";
 
 const cerbos = new Cerbos({
   hostname: "http://localhost:9090", // The Cerbos PDP instance
@@ -102,9 +108,17 @@ A number of configuration options are avaliable when creating the Cerbos SDK ins
 
 The hostname to the Cerbos PDP instance must be defined when creating the Cerbos instance.
 
-### Timeouts
+### Validation Errors
 
-It is possible to define a timeout value for all calls to the Cerbos instance. This is defined in milliseconds.
+If you have [schema support](https://docs.cerbos.dev/cerbos/latest/policies/schemas.html) enabled on your Cerbos PDP then validation errors can be surfaced in the SDK also. To do this set the `handleValidationErrors` configuration value to either `log` for validation errors to be logged to console or `error` for an exception to be thrown should any validation errors occur.
+
+```js
+const cerbos = new Cerbos({
+  hostname: "http://localhost:9090", // The Cerbos PDP instance
+  handleValidationErrors: 'log', // or 'error'
+  logLevel: "error",
+});
+```
 
 ### Logging
 
@@ -114,7 +128,6 @@ You can turn on debug logging if you want to check what endpoints are being call
 const cerbos = new Cerbos({
   hostname: "http://localhost:9090", // The Cerbos PDP instance
   logLevel: "debug",
-  timeout: 5000, // timeout in ms
 });
 ```
 

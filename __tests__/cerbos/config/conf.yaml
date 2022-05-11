@@ -12,3 +12,7 @@ auxData:
       - id: ks1
         local:
           file: /keys/verify_key.jwk
+schema:
+  enforcement: warn
+telemetry:
+  disabled: true
