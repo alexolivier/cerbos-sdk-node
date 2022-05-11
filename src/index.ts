@@ -162,9 +162,8 @@ export class Cerbos {
     if (!payload.requestId) {
       payload.requestId = uuidv4();
     }
-    // eslint-disable-next-line prefer-const
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const headers: any = {
+
+    const headers: HeadersInit = {
       "Content-Type": "application/json",
     };
     const response = await fetch(url, {
@@ -225,7 +224,6 @@ export class Cerbos {
     }
 
     // Handle Validation Errors
-
     if (this.handleValidationErrors) {
       const validationErrors = resp.resourceInstances
         ? Object.values(resp.resourceInstances)
