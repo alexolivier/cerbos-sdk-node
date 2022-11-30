@@ -43,7 +43,7 @@
   },
   "dependencies": {
     "isomorphic-unfetch": "^3.1.0",
-    "loglevel": "^1.8.0",
+    "loglevel": "^1.8.1",
     "node-jose": "^2.1.0",
     "uuid": "^8.3.2"
   }
